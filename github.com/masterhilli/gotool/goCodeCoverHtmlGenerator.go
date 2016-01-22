@@ -27,11 +27,51 @@ const packageNameForGoTool string = `github.com`
 
 func main() {
     fmt.Println(getEnvironmentVariable(gopathKey))
+    createCoverageFile()
+    copyNewGoFilesToLibrary()
+    createCodeCoverageHtmlPage()
+}
+
+func createCoverageFile() {
     executeTestWithCoverageInCurrentFolder()
-    codeCoverageFile := openCodecoverageOutputFile()
+    codeCoverageFile := openCodeCoverageOutputFile()
     relativeCodeCoverFileContent := makePathsRelativeForContentIn(codeCoverageFile)
     codeCoverageFile.Close()
     writeContentToCodeCoverageFile(relativeCodeCoverFileContent)
+}
+
+func copyNewGoFilesToLibrary() {
+    // TODO create method get the package go import path
+    var pathToCopyToGoRootFolder string
+    currentPath,_ := filepath.Abs(".")
+    indexForPackageStart := strings.Index(currentPath, packageNameForGoTool)
+    if (indexForPackageStart > 0) {
+        pathToCopyToGoRootFolder = currentPath[indexForPackageStart:len(currentPath)]
+    }
+
+    // TODO own method to create the path to package under libraries
+    goPath := getEnvironmentVariable(gopathKey)
+    packageFolderInGoPath := goPath + string(filepath.Separator) + "src" +string(filepath.Separator) + pathToCopyToGoRootFolder
+    err := os.MkdirAll(packageFolderInGoPath, 0777)
+    if err != nil { panic(err)}
+
+    // todo create own method for copying -- so I can create an OS independent function
+    commandToAllFilesFromCurrentFolder := exec.Command("xcopy.exe", "/Y", "*.go", packageFolderInGoPath)
+    output, err := commandToAllFilesFromCurrentFolder.Output()
+    if (err != nil) {
+        panic(err)
+    }
+    fmt.Println(string(output))
+}
+
+func createCodeCoverageHtmlPage() {
+    commandToCreateHTMLFileForCodeCoverage := exec.Command(programName, "tool", "cover", "-html="+codeCoverOutputFileName, "-o", codeCoverOutputFileName+".html")
+    output, err := commandToCreateHTMLFileForCodeCoverage.Output()
+    if (err != nil) {
+        panic(err)
+    }
+    fmt.Println(output)
+    // TODO: execute command to create HTML file and start default browser with HTML page
 }
 
 func getEnvironmentVariable(envKey string) string {
@@ -47,7 +87,7 @@ func executeTestWithCoverageInCurrentFolder() {
     fmt.Println(string(output))
 }
 
-func openCodecoverageOutputFile() *os.File {
+func openCodeCoverageOutputFile() *os.File {
     absCodeCoverOutputFileName, _ := filepath.Abs(codeCoverOutputFileName)
     file, err := os.OpenFile(absCodeCoverOutputFileName, os.O_RDWR, 0600)
     if err != nil {
@@ -80,3 +120,4 @@ func writeContentToCodeCoverageFile(relativeCodeCoverFileContent string) {
         panic(err)
     }
 }
+
