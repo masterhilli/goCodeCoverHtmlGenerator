@@ -1,0 +1,10 @@
+#folders that must be ignored:
+.idea
+test
+
+#files that must be ignored:
+*.iml
+
+
+#files that are created for test coverage:
+*.out
