@@ -5,6 +5,9 @@ import (
     "os"
     "os/exec"
     "path/filepath"
+    "bufio"
+    "strings"
+    "io/ioutil"
 )
 
 //environment variables
@@ -20,16 +23,15 @@ const codeCoverOutputFileName string = "cover.out"
 var paramsForTestWithCodeCoverage []string = []string{boolTestParam, boolCodeCoverParam, boolCoverProfile, codeCoverOutputFileName}
 
 //packagename
-const packageNameForGoTool string = `\github.com\masterhilli\gotool\`
+const packageNameForGoTool string = `github.com`
 
 func main() {
     fmt.Println(getEnvironmentVariable(gopathKey))
     executeTestWithCoverageInCurrentFolder()
     codeCoverageFile := openCodecoverageOutputFile()
-
-
-    defer codeCoverageFile.Close()
-
+    relativeCodeCoverFileContent := makePathsRelativeForContentIn(codeCoverageFile)
+    codeCoverageFile.Close()
+    writeContentToCodeCoverageFile(relativeCodeCoverFileContent)
 }
 
 func getEnvironmentVariable(envKey string) string {
@@ -47,9 +49,34 @@ func executeTestWithCoverageInCurrentFolder() {
 
 func openCodecoverageOutputFile() *os.File {
     absCodeCoverOutputFileName, _ := filepath.Abs(codeCoverOutputFileName)
-    file, err := os.Open(absCodeCoverOutputFileName)
+    file, err := os.OpenFile(absCodeCoverOutputFileName, os.O_RDWR, 0600)
     if err != nil {
         panic(err)
     }
     return file
+}
+
+func makePathsRelativeForContentIn(codeCoverageFile *os.File) string{
+    var relativeFormatedCodeCoverageFileContent string = ""
+    codeCoverageReader := bufio.NewReader(codeCoverageFile)
+    line, isPrefix, err := codeCoverageReader.ReadLine()
+    for err == nil && !isPrefix {
+        lineAsString := string(line)
+        indexOfPackageStart := strings.Index(lineAsString, packageNameForGoTool)
+        if (indexOfPackageStart >= 0) {
+            lineAsString = lineAsString[indexOfPackageStart:len(lineAsString)]
+        }
+        relativeFormatedCodeCoverageFileContent = relativeFormatedCodeCoverageFileContent + lineAsString+ "\n"
+        line, isPrefix, err = codeCoverageReader.ReadLine()
+    }
+    codeCoverageReader.Reset(codeCoverageReader)
+    return relativeFormatedCodeCoverageFileContent
+}
+
+func writeContentToCodeCoverageFile(relativeCodeCoverFileContent string) {
+    err :=  ioutil.WriteFile(codeCoverOutputFileName, []byte(relativeCodeCoverFileContent), 0777)
+
+    if err != nil {
+        panic(err)
+    }
 }
