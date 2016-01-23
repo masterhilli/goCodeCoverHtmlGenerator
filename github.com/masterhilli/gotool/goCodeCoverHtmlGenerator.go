@@ -45,7 +45,6 @@ func createCoverFileForDirectoryRecursive(path string) string{
         contentOfCoverFile = contentOfCoverFile + createCoverFileForSubDirectoryRecursive(path, childDirectories[i])
     }
     if directoryHasGoTestFiles(path) {
-        // TODO: change current execution directory to new directory!
         switchDirectoryToPath(path)
         contentOfCoverFile = contentOfCoverFile + createCoverageFile()
         copyNewGoFilesToLibrary()
@@ -129,7 +128,7 @@ func copyNewGoFilesToLibrary() {
     err := os.MkdirAll(packageFolderInGoPath, 0777)
     if err != nil { panic(err)}
 
-    // todo create own method for copying -- so I can create an OS independent function
+    // TODO: create own method for copying -- so I can create an OS independent function
     commandToAllFilesFromCurrentFolder := exec.Command("xcopy.exe", "/Y", "*.go", packageFolderInGoPath)
     output, err := commandToAllFilesFromCurrentFolder.Output()
     if (err != nil) {
@@ -170,6 +169,7 @@ func openCodeCoverageOutputFile() *os.File {
 }
 
 func makePathsRelativeForContentIn(codeCoverageFile *os.File) string{
+    //TODO: need to somehow remove the blanks from the path files, or perhabs that is even not allowed?
     var relativeFormatedCodeCoverageFileContent string = ""
     codeCoverageReader := bufio.NewReader(codeCoverageFile)
     line, isPrefix, err := codeCoverageReader.ReadLine() // I need to skip the first line! module set will be added later
