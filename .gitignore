@@ -8,3 +8,4 @@ test
 
 #files that are created for test coverage:
 *.out
+*.out.html

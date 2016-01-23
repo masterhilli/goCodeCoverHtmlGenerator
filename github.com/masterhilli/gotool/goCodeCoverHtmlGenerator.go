@@ -8,6 +8,7 @@ import (
     "bufio"
     "strings"
     "io/ioutil"
+    "regexp"
 )
 
 //environment variables
@@ -26,18 +27,91 @@ var paramsForTestWithCodeCoverage []string = []string{boolTestParam, boolCodeCov
 const packageNameForGoTool string = `github.com`
 
 func main() {
-    fmt.Println(getEnvironmentVariable(gopathKey))
-    createCoverageFile()
-    copyNewGoFilesToLibrary()
+    currentPath,_ := filepath.Abs(".")
+    contentOfCoverFiles := "mode: set\n" + createCoverFileForDirectoryRecursive(currentPath)
+
+    switchDirectoryToPath(currentPath)
+    writeContentToCodeCoverageFile(contentOfCoverFiles)
+    //fmt.Printf("\nCONTENT: \n%s\n", contentOfCoverFiles)
     createCodeCoverageHtmlPage()
 }
+func createCoverFileForDirectoryRecursive(path string) string{
+    var contentOfCoverFile string = ""
+    if (!filepath.IsAbs(path)) {
+        fmt.Printf("Warning: path is not an absolute path (%s)", path)
+    }
+    childDirectories := getDirectoriesOfPath(path)
+    for i := range childDirectories {
+        contentOfCoverFile = contentOfCoverFile + createCoverFileForSubDirectoryRecursive(path, childDirectories[i])
+    }
+    if directoryHasGoTestFiles(path) {
+        // TODO: change current execution directory to new directory!
+        switchDirectoryToPath(path)
+        contentOfCoverFile = contentOfCoverFile + createCoverageFile()
+        copyNewGoFilesToLibrary()
+    }
+    return contentOfCoverFile
+}
 
-func createCoverageFile() {
+func switchDirectoryToPath(path string) {
+    err := os.Chdir(path)
+    if (err != nil) {
+        panic(err)
+    }
+}
+
+func createCoverFileForSubDirectoryRecursive(path, childDirectory string) string {
+    path = addSeparator(path)
+    path = addSeparator(path + childDirectory)
+    return createCoverFileForDirectoryRecursive(path)
+}
+
+func addSeparator(path string) string {
+    if (len(path) > 0 && strings.LastIndex(path, string(filepath.Separator)) != len(path)-1) {
+        path = path + string(filepath.Separator)
+    }
+    return path
+}
+
+func getDirectoriesOfPath(path string) []string{
+    var directories []string = make([]string, 0)
+    fileInfo, err := ioutil.ReadDir(path)
+    if err != nil {
+        panic(err)
+    }
+
+    for i := range fileInfo {
+        if fileInfo[i].IsDir() {
+            directories = append(directories, fileInfo[i].Name())
+        }
+    }
+    return directories
+}
+
+func directoryHasGoTestFiles(path string) bool {
+    fileInfo, err := ioutil.ReadDir(path)
+    if err != nil {
+        panic(err)
+    }
+
+    for i := range fileInfo {
+        if !fileInfo[i].IsDir() {
+            matchGoTest, _ := regexp.MatchString(".*test\\.go", fileInfo[i].Name())
+            if matchGoTest {
+                return true
+            }
+        }
+    }
+    return false
+}
+
+func createCoverageFile() string{
     executeTestWithCoverageInCurrentFolder()
     codeCoverageFile := openCodeCoverageOutputFile()
     relativeCodeCoverFileContent := makePathsRelativeForContentIn(codeCoverageFile)
     codeCoverageFile.Close()
-    writeContentToCodeCoverageFile(relativeCodeCoverFileContent)
+    writeContentToCodeCoverageFile("mode: set\n" + relativeCodeCoverFileContent)
+    return relativeCodeCoverFileContent
 }
 
 func copyNewGoFilesToLibrary() {
@@ -70,8 +144,7 @@ func createCodeCoverageHtmlPage() {
     if (err != nil) {
         panic(err)
     }
-    fmt.Println(output)
-    // TODO: execute command to create HTML file and start default browser with HTML page
+    fmt.Println(string(output))
 }
 
 func getEnvironmentVariable(envKey string) string {
@@ -99,7 +172,8 @@ func openCodeCoverageOutputFile() *os.File {
 func makePathsRelativeForContentIn(codeCoverageFile *os.File) string{
     var relativeFormatedCodeCoverageFileContent string = ""
     codeCoverageReader := bufio.NewReader(codeCoverageFile)
-    line, isPrefix, err := codeCoverageReader.ReadLine()
+    line, isPrefix, err := codeCoverageReader.ReadLine() // I need to skip the first line! module set will be added later
+    line, isPrefix, err = codeCoverageReader.ReadLine()
     for err == nil && !isPrefix {
         lineAsString := string(line)
         indexOfPackageStart := strings.Index(lineAsString, packageNameForGoTool)
