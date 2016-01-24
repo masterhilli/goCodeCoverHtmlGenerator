@@ -184,7 +184,8 @@ func executeTestWithCoverageInCurrentFolder() {
     commandToCreateCodeCoverageFile := exec.Command(programName, paramsForTestWithCodeCoverage...)
     output, err := commandToCreateCodeCoverageFile.Output()
     if (err != nil) {
-        panic(err)
+        fmt.Printf("Output produced: %s \n ERROR: %s\n", string(output), err.Error())
+        // panic(err) I do no longer panic ... it should run through!
     }
     fmt.Println(string(output))
 }
