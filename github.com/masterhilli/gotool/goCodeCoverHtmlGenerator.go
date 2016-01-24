@@ -41,9 +41,12 @@ const codeCoverOutputFileName string = "cover.out"
 var paramsForTestWithCodeCoverage []string = []string{boolTestParam, boolCodeCoverParam, boolCoverProfile, codeCoverOutputFileName}
 
 //packagename
-const packageNameForGoTool string = `github.com`
+const POSSIBLE_ARG_COUNT int = 2
+const POS_MAIN_PACKAGE_NAME int = 1
+var packageNameForGoTool string = `github.com`
 
 func main() {
+    retrieveMainPackageName()
     currentPath,_ := filepath.Abs(".")
     contentOfCoverFiles := "mode: set\n" + createCoverFileForDirectoryRecursive(currentPath)
 
@@ -52,6 +55,15 @@ func main() {
     //fmt.Printf("\nCONTENT: \n%s\n", contentOfCoverFiles)
     createCodeCoverageHtmlPage()
 }
+
+func retrieveMainPackageName() {
+    if (len(os.Args) != POSSIBLE_ARG_COUNT) {
+        fmt.Println("Information: no main package name provided. Fallback is 'github.com'")
+    } else {
+        packageNameForGoTool = os.Args[POS_MAIN_PACKAGE_NAME]
+    }
+}
+
 func createCoverFileForDirectoryRecursive(path string) string{
     var contentOfCoverFile string = ""
     if (!filepath.IsAbs(path)) {
@@ -156,11 +168,12 @@ func copyNewGoFilesToLibrary() {
 
 func createCodeCoverageHtmlPage() {
     commandToCreateHTMLFileForCodeCoverage := exec.Command(programName, "tool", "cover", "-html="+codeCoverOutputFileName, "-o", codeCoverOutputFileName+".html")
-    output, err := commandToCreateHTMLFileForCodeCoverage.Output()
+    _, err := commandToCreateHTMLFileForCodeCoverage.Output()
     if (err != nil) {
-        panic(err)
+        fmt.Printf("ERROR in HTML file generation: %s\n", err.Error())
+    } else {
+        fmt.Println("Html file was created successfully")
     }
-    fmt.Println(string(output))
 }
 
 func getEnvironmentVariable(envKey string) string {
