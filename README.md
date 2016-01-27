@@ -14,13 +14,15 @@ That means you do not have to go to each package to create and view the code cov
 * Creates a single HTML file in the executed path with the Code Coverage of all your go files.
 
 ### Open Issues
-
-* Copy of files to GOPATH is currently using xcopy of Windows and so the program is not yet compatible with other OS
 * Currently does not allow spaces in directories or files
+
+### Tested
+* there are no unit tests, because this was just a helper for me
+* tested on Ubuntu 15 and Windows 10
 
 ### Authors and Contributors
 
-Author: @masterhilli Year: 2016
+Author: @masterhilli Year: jan2016
 
 ### License
 
