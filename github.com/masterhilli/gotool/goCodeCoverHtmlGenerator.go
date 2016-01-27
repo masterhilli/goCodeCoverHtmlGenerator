@@ -28,6 +28,13 @@ import (
     "regexp"
 )
 
+// printed information to user:
+const usageInformationToPrint string = `Information: no main package name provided. Fallback is 'github.com'.
+If you want to use it for your specific package (meaning first package name under %GOPATH%/src/<yourpackage>)
+usage:
+goCodeCoverHtmlGenerator <yourpackage>
+`
+
 //environment variables
 const gopathKey string = "GOPATH"
 
@@ -52,13 +59,12 @@ func main() {
 
     switchDirectoryToPath(currentPath)
     writeContentToCodeCoverageFile(contentOfCoverFiles)
-    //fmt.Printf("\nCONTENT: \n%s\n", contentOfCoverFiles)
     createCodeCoverageHtmlPage()
 }
 
 func retrieveMainPackageName() {
     if (len(os.Args) != POSSIBLE_ARG_COUNT) {
-        fmt.Println("Information: no main package name provided. Fallback is 'github.com'")
+        fmt.Println(usageInformationToPrint)
     } else {
         packageNameForGoTool = os.Args[POS_MAIN_PACKAGE_NAME]
     }
@@ -76,7 +82,7 @@ func createCoverFileForDirectoryRecursive(path string) string{
     if directoryHasGoTestFiles(path) {
         switchDirectoryToPath(path)
         contentOfCoverFile = contentOfCoverFile + createCoverageFile()
-        copyNewGoFilesToLibrary()
+        copyNewGoFilesToGoRootSrcWhenInSeparateLocation()
     }
     return contentOfCoverFile
 }
@@ -142,28 +148,35 @@ func createCoverageFile() string{
     return relativeCodeCoverFileContent
 }
 
-func copyNewGoFilesToLibrary() {
+func copyNewGoFilesToGoRootSrcWhenInSeparateLocation() {
     // TODO create method get the package go import path
     var pathToCopyToGoRootFolder string
     currentPath,_ := filepath.Abs(".")
     indexForPackageStart := strings.Index(currentPath, packageNameForGoTool)
     if (indexForPackageStart > 0) {
         pathToCopyToGoRootFolder = currentPath[indexForPackageStart:len(currentPath)]
+    } else {
+        fmt.Printf("ERROR: Could not retrieve index for provided package in current path.\n\tpath:\t%s\n\tpkg:\t%s\n",
+                   currentPath, packageNameForGoTool)
+        return
     }
 
-    // TODO own method to create the path to package under libraries
-    goPath := getEnvironmentVariable(gopathKey)
-    packageFolderInGoPath := goPath + string(filepath.Separator) + "src" +string(filepath.Separator) + pathToCopyToGoRootFolder
-    err := os.MkdirAll(packageFolderInGoPath, 0777)
-    if err != nil { panic(err)}
+    goPathSrc := createPathToGoPathSrc()
+    if(isCurrentExecutionPathAlreadyInGoRootSrc(currentPath, goPathSrc)) {
+        // TODO own method to create the path to package under libraries
+        packageFolderInGoPath := goPathSrc + pathToCopyToGoRootFolder
+        err := os.MkdirAll(packageFolderInGoPath, 0777)
+        if err != nil { panic(err)}
 
-    // TODO: create own method for copying -- so I can create an OS independent function
-    commandToAllFilesFromCurrentFolder := exec.Command("xcopy.exe", "/Y", "*.go", packageFolderInGoPath)
-    output, err := commandToAllFilesFromCurrentFolder.Output()
-    if (err != nil) {
-        panic(err)
+
+        copyFilesToGOROOTPath(packageFolderInGoPath)
     }
-    fmt.Println(string(output))
+}
+
+func createPathToGoPathSrc() string {
+    goPathSrc := getEnvironmentVariable(gopathKey)
+    goPathSrc = addSeparator(goPathSrc) + "src"
+    return addSeparator(goPathSrc)
 }
 
 func createCodeCoverageHtmlPage() {
@@ -225,3 +238,15 @@ func writeContentToCodeCoverageFile(relativeCodeCoverFileContent string) {
     }
 }
 
+func copyFilesToGOROOTPath(packageFolderInGoPath string) {
+    commandToAllFilesFromCurrentFolder := exec.Command("xcopy.exe", "/Y", "*.go", packageFolderInGoPath)
+    output, err := commandToAllFilesFromCurrentFolder.Output()
+    if (err != nil) {
+        panic(err)
+    }
+    fmt.Println(string(output))
+}
+
+func isCurrentExecutionPathAlreadyInGoRootSrc(currentPath, goPathSrc string) bool {
+    return strings.Index(currentPath, goPathSrc) == 0
+}
